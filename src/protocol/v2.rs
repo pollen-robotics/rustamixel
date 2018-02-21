@@ -93,6 +93,7 @@ enum Instruction {
 }
 
 /// Packet header are constructed as follows [0xFF, 0xFF, 0xFD, 0x00, ID, `LEN_L`, `LEN_H`]
+#[derive(Debug)]
 struct PacketHeader {
     _id: u8,
     length: u16,
@@ -108,8 +109,8 @@ impl PacketHeader {
         }
 
         Ok(PacketHeader {
-            _id: bytes[5],
-            length: pack!(bytes[6], bytes[7]),
+            _id: bytes[4],
+            length: pack!(bytes[5], bytes[6]),
         })
     }
     const fn length() -> usize {
@@ -186,8 +187,10 @@ impl InstructionPacket {
 
 /// Status Packet are constructed as follows:
 /// [0xFF, 0xFF, 0xFD, 0x00, ID, `LEN_L`, `LEN_H`, 0x55, ERROR, PARAM 1, PARAM 2, ..., PARAM N, `CRC_L`, `CRC_H`]
+#[derive(Debug)]
 struct StatusPacket {
     _id: u8,
+    _length: u16,
     error_code: Option<u8>,
     parameters: Vec<u8>,
 }
@@ -199,10 +202,12 @@ impl StatusPacket {
         }
 
         let _id = bytes[4];
+        let _length = pack!(bytes[5], bytes[6]);
         let error_code = if bytes[8] == 0 { None } else { Some(bytes[8]) };
         let parameters = bytes[9..end - 2].to_vec();
         Ok(StatusPacket {
             _id,
+            _length,
             error_code,
             parameters,
         })
@@ -211,4 +216,62 @@ impl StatusPacket {
 
 fn crc(bytes: &[u8]) -> u16 {
     crc16::State::<crc16::BUYPASS>::calculate(bytes)
+}
+
+#[cfg(test)]
+mod test {
+    extern crate rand;
+
+    use super::*;
+    use self::rand::random;
+
+    #[test]
+    fn parse_status_packet() {
+        let bytes = [0xFF, 0xFF, 0xFD, 0x00, 42, 6, 0, 0x55, 0, 0, 23, 4, 242];
+        let sp = StatusPacket::from_bytes(&bytes).unwrap();
+        assert_eq!(sp._id, 42, "check id");
+        assert_eq!(sp._length, pack!(6_u8, 0_u8), "check length");
+        assert_eq!(sp.parameters, vec![0, 23], "check parameters");
+    }
+    #[test]
+    fn parse_random_status_packet() {
+        let id: u8 = random();
+        let parameters = random_parameters();
+        let len = (parameters.len() + 4) as u16;
+        let (len_l, len_h) = unpack!(len);
+        let error = 0;
+
+        let mut bytes = vec![0xFF, 0xFF, 0xFD, 0x00, id, len_l, len_h, 0x55, error];
+        bytes.extend(&parameters);
+        let crc = crc(&bytes);
+        let (crc_l, crc_h) = unpack!(crc);
+        bytes.extend(vec![crc_l, crc_h]);
+
+        let sp = StatusPacket::from_bytes(&bytes).unwrap();
+        assert_eq!(sp._id, id, "check id");
+        assert_eq!(sp._length, len, "check length");
+        assert!(sp.error_code.is_none(), "check error code");
+        assert_eq!(sp.parameters, parameters, "check parameters");
+    }
+    #[test]
+    fn status_error() {
+        let error: u8 = random();
+        let error = if error == 0 { 1 } else { error };
+        let mut bytes = vec![0xFF, 0xFF, 0xFD, 0x00, 42, 6, 0, 0x55, error, 0, 23];
+        let crc = crc(&bytes);
+        let (crc_l, crc_h) = unpack!(crc);
+        bytes.extend(vec![crc_l, crc_h]);
+        let sp = StatusPacket::from_bytes(&bytes).unwrap();
+        println!("****{:?}", sp);
+
+        assert_eq!(sp.error_code, Some(error));
+    }
+    fn random_parameters() -> Vec<u8> {
+        let size: u8 = random();
+        let mut data = Vec::new();
+        for _ in 0..size {
+            data.push(random());
+        }
+        data
+    }
 }

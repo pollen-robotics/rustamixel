@@ -22,3 +22,6 @@ repository = "pollen-robotics/rustamixel"
 crc16 = "0.3.4"
 embedded-hal = "0.1.2"
 nb = "0.1.1"
+
+[dev-dependencies]
+rand = "0.4.2"

@@ -1,5 +1,5 @@
-#[derive(Debug)]
-enum ErrorType {
+#[derive(Debug, PartialEq)]
+pub enum ErrorType {
     Parsing,
     UnsupportedRegister,
     StatusError(u8),
@@ -8,7 +8,7 @@ enum ErrorType {
 
 #[derive(Debug)]
 pub struct DynamixelError {
-    error: ErrorType,
+    pub error: ErrorType,
 }
 impl DynamixelError {
     pub fn parsing_error() -> DynamixelError {
