@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::String;
+
 #[derive(Debug, PartialEq)]
 pub enum ErrorType {
     Parsing,

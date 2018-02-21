@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::Vec;
+
 use crc16;
 use hal;
 
@@ -262,7 +265,6 @@ mod test {
         let (crc_l, crc_h) = unpack!(crc);
         bytes.extend(vec![crc_l, crc_h]);
         let sp = StatusPacket::from_bytes(&bytes).unwrap();
-        println!("****{:?}", sp);
 
         assert_eq!(sp.error_code, Some(error));
     }
