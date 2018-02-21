@@ -13,6 +13,8 @@ Its goal is to support:
 ```
 extern crate dynamixel;
 
+use dynamixel::motors::XL_320;
+
 fn main() {
     let mut c = dynamixel::with_protocol_v2(my_serial);
 
