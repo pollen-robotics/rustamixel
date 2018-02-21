@@ -215,6 +215,27 @@ impl StatusPacket {
             parameters,
         })
     }
+    #[cfg(test)]
+    /// [0xFF, 0xFF, 0xFD, 0x00, ID, `LEN_L`, `LEN_H`, 0x55, ERROR, PARAM 1, PARAM 2, ..., PARAM N, `CRC_L`, `CRC_H`]
+    fn to_bytes(&self) -> Vec<u8> {
+        let (len_l, len_h) = unpack!(self._length);
+        let mut bytes = vec![
+            0xFF,
+            0xFF,
+            0xFD,
+            0x00,
+            self._id,
+            len_l,
+            len_h,
+            0x55,
+            self.error_code.unwrap_or(0),
+        ];
+        bytes.extend(&self.parameters);
+        let crc = crc(&bytes);
+        let (crc_l, crc_h) = unpack!(crc);
+        bytes.extend(vec![crc_l, crc_h]);
+        bytes
+    }
 }
 
 fn crc(bytes: &[u8]) -> u16 {
@@ -227,6 +248,7 @@ mod test {
 
     use super::*;
     use self::rand::random;
+    use self::rand::distributions::{Range, Sample};
 
     #[test]
     fn parse_status_packet() {
@@ -238,23 +260,15 @@ mod test {
     }
     #[test]
     fn parse_random_status_packet() {
-        let id: u8 = random();
-        let parameters = random_parameters();
-        let len = (parameters.len() + 4) as u16;
-        let (len_l, len_h) = unpack!(len);
-        let error = 0;
-
-        let mut bytes = vec![0xFF, 0xFF, 0xFD, 0x00, id, len_l, len_h, 0x55, error];
-        bytes.extend(&parameters);
-        let crc = crc(&bytes);
-        let (crc_l, crc_h) = unpack!(crc);
-        bytes.extend(vec![crc_l, crc_h]);
+        let mut rp = random_status_packet();
+        rp.error_code = None;
+        let bytes = rp.to_bytes();
 
         let sp = StatusPacket::from_bytes(&bytes).unwrap();
-        assert_eq!(sp._id, id, "check id");
-        assert_eq!(sp._length, len, "check length");
+        assert_eq!(sp._id, rp._id, "check id");
+        assert_eq!(sp._length, rp._length, "check length");
         assert!(sp.error_code.is_none(), "check error code");
-        assert_eq!(sp.parameters, parameters, "check parameters");
+        assert_eq!(sp.parameters, rp.parameters, "check parameters");
     }
     #[test]
     fn status_error() {
@@ -267,6 +281,25 @@ mod test {
         let sp = StatusPacket::from_bytes(&bytes).unwrap();
 
         assert_eq!(sp.error_code, Some(error));
+    }
+    fn random_status_packet() -> StatusPacket {
+        let _id: u8 = random();
+        let parameters = random_parameters();
+        let _length = (parameters.len() + 4) as u16;
+        let error_code = random_error();
+        StatusPacket {
+            _id,
+            _length,
+            error_code,
+            parameters,
+        }
+    }
+    fn random_error() -> Option<u8> {
+        let e = Range::new(0u8, 8).sample(&mut rand::thread_rng());
+        match e {
+            0 => None,
+            e => Some(e),
+        }
     }
     fn random_parameters() -> Vec<u8> {
         let size: u8 = random();
