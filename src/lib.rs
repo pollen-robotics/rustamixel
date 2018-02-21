@@ -19,6 +19,7 @@
 #![deny(unsafe_code)]
 #![deny(missing_docs)]
 #![feature(never_type)]
+#![feature(const_fn)]
 
 extern crate embedded_hal as hal;
 use hal::serial::{Read, Write};

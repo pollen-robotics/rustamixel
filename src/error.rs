@@ -2,6 +2,8 @@
 enum ErrorType {
     Parsing,
     UnsupportedRegister,
+    StatusError(u8),
+    InvalidChecksum,
 }
 
 #[derive(Debug)]
@@ -17,6 +19,16 @@ impl DynamixelError {
     pub fn unsupported_register() -> DynamixelError {
         DynamixelError {
             error: ErrorType::UnsupportedRegister,
+        }
+    }
+    pub fn status_error_code(e: u8) -> DynamixelError {
+        DynamixelError {
+            error: ErrorType::StatusError(e),
+        }
+    }
+    pub fn invalid_checksum() -> DynamixelError {
+        DynamixelError {
+            error: ErrorType::InvalidChecksum,
         }
     }
     pub fn description(&self) -> String {

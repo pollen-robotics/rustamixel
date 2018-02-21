@@ -1,22 +1,23 @@
-use hal;
 use crc16;
+use hal;
 
 use error::DynamixelError;
 use motors::Register;
 
 /// Dynamixel controller for the protocol v2
 pub struct ControllerV2<RX, TX> {
-    _rx: RX,
+    rx: RX,
     tx: TX,
 }
 
 impl<RX, TX> ControllerV2<RX, TX>
 where
     TX: hal::serial::Write<u8, Error = !>,
+    RX: hal::serial::Read<u8, Error = !>,
 {
     /// Create a new controller for the protocol v2.
     pub fn new(rx: RX, tx: TX) -> ControllerV2<RX, TX> {
-        ControllerV2 { _rx: rx, tx }
+        ControllerV2 { rx: rx, tx }
     }
     /// Read data from a specified register `REG` on motor `id`.
     ///
@@ -50,6 +51,7 @@ where
 
         self.send(&packet);
         self.recv()?;
+
         Ok(())
     }
     fn send(&mut self, packet: &InstructionPacket) {
@@ -58,12 +60,25 @@ where
         }
     }
     fn recv(&mut self) -> Result<StatusPacket, DynamixelError> {
-        // TODO: read header
-        // TODO: read rest of message with header.data
-        // TODO: check error flag
         // TODO: impl. timeout
-        let bytes = vec![1, 2, 3, 4];
-        StatusPacket::from_bytes(&bytes)
+
+        let mut bytes = Vec::new();
+        for _ in 0..PacketHeader::length() {
+            bytes.push(block!(self.rx.read()).unwrap());
+        }
+        let header = PacketHeader::from_bytes(&bytes)?;
+
+        for _ in 0..header.length {
+            bytes.push(block!(self.rx.read()).unwrap());
+        }
+
+        let p = StatusPacket::from_bytes(&bytes)?;
+
+        if let Some(e) = p.error_code {
+            return Err(DynamixelError::status_error_code(e));
+        }
+
+        Ok(p)
     }
 }
 
@@ -75,6 +90,31 @@ enum Instruction {
     _Reset = 0x06,
     _SyncRead = 0x82,
     _SyncWrite = 0x83,
+}
+
+/// Packet header are constructed as follows [0xFF, 0xFF, 0xFD, 0x00, ID, `LEN_L`, `LEN_H`]
+struct PacketHeader {
+    _id: u8,
+    length: u16,
+}
+impl PacketHeader {
+    fn from_bytes(bytes: &[u8]) -> Result<PacketHeader, DynamixelError> {
+        const HEADER: [u8; 4] = [0xFF, 0xFF, 0xFD, 0x00];
+
+        assert_eq!(bytes.len(), PacketHeader::length());
+
+        if bytes[..4] != HEADER {
+            return Err(DynamixelError::parsing_error());
+        }
+
+        Ok(PacketHeader {
+            _id: bytes[5],
+            length: pack!(bytes[6], bytes[7]),
+        })
+    }
+    const fn length() -> usize {
+        7
+    }
 }
 
 struct InstructionPacket {
@@ -136,24 +176,39 @@ impl InstructionPacket {
 
         buff.extend(&self.parameters);
 
-        let (crc_l, crc_h) = unpack!(self.crc(&buff));
+        let (crc_l, crc_h) = unpack!(crc(&buff));
         buff.push(crc_l);
         buff.push(crc_h);
 
         buff
     }
-    fn crc(&self, bytes: &[u8]) -> u16 {
-        crc16::State::<crc16::BUYPASS>::calculate(bytes)
-    }
 }
 
+/// Status Packet are constructed as follows:
+/// [0xFF, 0xFF, 0xFD, 0x00, ID, `LEN_L`, `LEN_H`, 0x55, ERROR, PARAM 1, PARAM 2, ..., PARAM N, `CRC_L`, `CRC_H`]
 struct StatusPacket {
     _id: u8,
-    _error_code: Option<u8>,
+    error_code: Option<u8>,
     parameters: Vec<u8>,
 }
 impl StatusPacket {
-    fn from_bytes(_bytes: &[u8]) -> Result<StatusPacket, DynamixelError> {
-        Err(DynamixelError::parsing_error())
+    fn from_bytes(bytes: &[u8]) -> Result<StatusPacket, DynamixelError> {
+        let end = bytes.len();
+        if crc(&bytes[..end - 2]) != pack!(bytes[end - 2], bytes[end - 1]) {
+            return Err(DynamixelError::invalid_checksum());
+        }
+
+        let _id = bytes[4];
+        let error_code = if bytes[8] == 0 { None } else { Some(bytes[8]) };
+        let parameters = bytes[9..end - 2].to_vec();
+        Ok(StatusPacket {
+            _id,
+            error_code,
+            parameters,
+        })
     }
+}
+
+fn crc(bytes: &[u8]) -> u16 {
+    crc16::State::<crc16::BUYPASS>::calculate(bytes)
 }
