@@ -12,7 +12,7 @@ Its goal is to support:
 
 ## Example
 
-```
+```rust
 extern crate dynamixel;
 
 use dynamixel::motors::XL_320;
