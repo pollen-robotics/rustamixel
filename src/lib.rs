@@ -16,6 +16,7 @@
 //!     }
 //! }
 //! ```
+#![deny(unsafe_code)]
 #![deny(missing_docs)]
 #![feature(never_type)]
 
