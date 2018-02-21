@@ -4,31 +4,23 @@ use crc16;
 use error::DynamixelError;
 use motors::Register;
 
-pub struct V2<RX, TX> {
+/// Dynamixel controller for the protocol v2
+pub struct ControllerV2<RX, TX> {
     _rx: RX,
     tx: TX,
 }
 
-impl<RX, TX> V2<RX, TX>
+impl<RX, TX> ControllerV2<RX, TX>
 where
     TX: hal::serial::Write<u8, Error = !>,
 {
-    pub fn new(rx: RX, tx: TX) -> V2<RX, TX> {
-        V2 { _rx: rx, tx }
+    /// Create a new controller for the protocol v2.
+    pub fn new(rx: RX, tx: TX) -> ControllerV2<RX, TX> {
+        ControllerV2 { _rx: rx, tx }
     }
-    fn send(&mut self, packet: &InstructionPacket) {
-        for b in packet.as_bytes() {
-            block!(self.tx.write(b)).ok();
-        }
-    }
-    fn recv(&mut self) -> Result<StatusPacket, DynamixelError> {
-        // TODO: read header
-        // TODO: read rest of message with header.data
-        // TODO: check error flag
-        // TODO: impl. timeout
-        let bytes = vec![1, 2, 3, 4];
-        StatusPacket::from_bytes(&bytes)
-    }
+    /// Read data from a specified register `REG` on motor `id`.
+    ///
+    /// *Note: This will send an InstructionPacket to the motor and block until the StatusPacket is received as reponse.*
     pub fn read_data<REG>(&mut self, id: u8, reg: REG) -> Result<u16, DynamixelError>
     where
         REG: Register,
@@ -47,7 +39,9 @@ where
             _ => Err(DynamixelError::unsupported_register()),
         }
     }
-
+    /// Write `data` to a specified register `REG` on motor `id`.
+    ///
+    /// *Note: This will send an InstructionPacket to the motor and block until the StatusPacket is received as an acknowledgment.*
     pub fn write_data<REG>(&mut self, id: u8, reg: REG, data: u16) -> Result<(), DynamixelError>
     where
         REG: Register,
@@ -57,6 +51,19 @@ where
         self.send(&packet);
         self.recv()?;
         Ok(())
+    }
+    fn send(&mut self, packet: &InstructionPacket) {
+        for b in packet.as_bytes() {
+            block!(self.tx.write(b)).ok();
+        }
+    }
+    fn recv(&mut self) -> Result<StatusPacket, DynamixelError> {
+        // TODO: read header
+        // TODO: read rest of message with header.data
+        // TODO: check error flag
+        // TODO: impl. timeout
+        let bytes = vec![1, 2, 3, 4];
+        StatusPacket::from_bytes(&bytes)
     }
 }
 
