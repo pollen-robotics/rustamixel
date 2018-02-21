@@ -1,0 +1,13 @@
+language: rust
+rust:
+  - nightly
+cache: cargo
+
+before_script:
+  - rustup component add --toolchain nightly rustfmt-preview
+  - which rustfmt || cargo install --force rustfmt-nightly
+
+script:
+  - cargo build
+  - cargo test
+  - cargo +nightly fmt --all -- --write-mode=diff

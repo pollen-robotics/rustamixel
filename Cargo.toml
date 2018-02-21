@@ -1,0 +1,19 @@
+[package]
+authors = ["Pollen Robotics <pierre@pollen-robotics.com>"]
+categories = [
+    "hardware-support",
+    "no-std",
+]
+description = "Rust implementation of the Robotis Dynamixel motor protocol."
+keywords = [
+    "robotis",
+    "dynamixel",
+    "motor",
+    "embedded-hal-impl",
+]
+license = "Apache-2.0"
+name = "dynamixel"
+version = "0.1.0"
+
+[badges.travis-ci]
+repository = "pollen-robotics/rustamixel"
