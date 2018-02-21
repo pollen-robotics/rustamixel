@@ -1,5 +1,7 @@
 # Dynamixel Rust library
 
+[![Build Status](https://travis-ci.org/pollen-robotics/rustamixel.svg?branch=master)](https://travis-ci.org/pollen-robotics/rustamixel)
+
 This crate provides a Rust implementation of the Robotis Dynamixel motor protocol. It is still a work in progress.
 
 Its goal is to support:
