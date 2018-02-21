@@ -39,3 +39,25 @@ macro_rules! unpack {
         ($b as u8, ($b >> 8) as u8)
     }
 }
+
+#[cfg(test)]
+mod test {
+    extern crate rand;
+    use self::rand::random;
+
+    #[test]
+    fn unpack2pack() {
+        let x: u16 = random();
+        let (l, h) = unpack!(x);
+        assert_eq!(x, pack!(l, h));
+    }
+    #[test]
+    fn pack2unpack() {
+        let l: u8 = random();
+        let h: u8 = random();
+        let x = pack!(l, h);
+        let (ll, hh) = unpack!(x);
+        assert_eq!(l, ll);
+        assert_eq!(h, hh);
+    }
+}
