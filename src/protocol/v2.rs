@@ -148,9 +148,8 @@ impl InstructionPacket {
     }
     fn write_data(id: u8, addr: u16, len: u16, data: u16) -> InstructionPacket {
         let (addr_l, addr_h) = unpack!(addr);
-        let (len_l, len_h) = unpack!(len);
 
-        let mut parameters = vec![addr_l, addr_h, len_l, len_h];
+        let mut parameters = vec![addr_l, addr_h];
         match len {
             1 => parameters.push(data as u8),
             2 => {
