@@ -85,7 +85,7 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Instruction {
     _Ping = 0x01,
     ReadData = 0x02,
@@ -121,6 +121,7 @@ impl PacketHeader {
     }
 }
 
+#[derive(Debug)]
 struct InstructionPacket {
     id: u8,
     length: u16,
