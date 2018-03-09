@@ -20,8 +20,11 @@ repository = "pollen-robotics/rustamixel"
 
 [dependencies]
 crc16 = "0.3.4"
-embedded-hal = "0.1.2"
 nb = "0.1.1"
+
+[dependencies.embedded-hal]
+# git = "https://github.com/pollen-robotics/embedded-hal"
+path = "../../stm32/embedded-hal"
 
 [dev-dependencies]
 rand = "0.4.2"

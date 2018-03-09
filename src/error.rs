@@ -7,6 +7,7 @@ pub enum ErrorType {
     UnsupportedRegister,
     StatusError(u8),
     InvalidChecksum,
+    Timeout,
 }
 
 #[derive(Debug)]
@@ -32,6 +33,11 @@ impl DynamixelError {
     pub fn invalid_checksum() -> DynamixelError {
         DynamixelError {
             error: ErrorType::InvalidChecksum,
+        }
+    }
+    pub fn timeout() -> DynamixelError {
+        DynamixelError {
+            error: ErrorType::Timeout,
         }
     }
     pub fn description(&self) -> String {

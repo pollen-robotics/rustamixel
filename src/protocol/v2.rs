@@ -1,26 +1,67 @@
+use core::ops;
 #[cfg(not(feature = "std"))]
 use alloc::Vec;
 
 use crc16;
 use hal;
 
-use error::DynamixelError;
+use error::{DynamixelError, ErrorType};
 use motors::Register;
 
+const TIMEOUT: hal::time::MilliSecond = hal::time::MilliSecond(10);
+
 /// Dynamixel controller for the protocol v2
-pub struct ControllerV2<RX, TX> {
+pub struct ControllerV2<RX, TX, CLOCK> {
     rx: RX,
     tx: TX,
+
+    clock: CLOCK,
+    timeout: hal::time::MilliSecond,
 }
 
-impl<RX, TX> ControllerV2<RX, TX>
+impl<RX, TX, CLOCK> ControllerV2<RX, TX, CLOCK>
 where
     TX: hal::serial::Write<u8, Error = !>,
     RX: hal::serial::Read<u8, Error = !>,
+    CLOCK: hal::time::Time,
 {
     /// Create a new controller for the protocol v2.
-    pub fn new(rx: RX, tx: TX) -> ControllerV2<RX, TX> {
-        ControllerV2 { rx: rx, tx }
+    pub fn new(rx: RX, tx: TX, clock: CLOCK) -> ControllerV2<RX, TX, CLOCK> {
+        ControllerV2 {
+            rx,
+            tx,
+            clock,
+            timeout: TIMEOUT,
+        }
+    }
+    /// Send a ping signal to the specified motor
+    pub fn ping(&mut self, id: u8) -> Result<bool, DynamixelError> {
+        self.send(&InstructionPacket::ping(id));
+
+        // println!("Ping {:?} --> {:?}", id, self.recv());
+
+        match self.recv() {
+            Ok(_) => Ok(true),
+            Err(e) => {
+                if e.error == ErrorType::Timeout {
+                    Ok(false)
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+    /// Scan a range of motors id
+    pub fn scan(&mut self, id_range: ops::Range<u8>) -> Result<Vec<u8>, DynamixelError> {
+        let mut v = Vec::new();
+
+        for id in id_range {
+            if self.ping(id)? {
+                v.push(id);
+            }
+        }
+
+        Ok(v)
     }
     /// Read data from a specified register `REG` on motor `id`.
     ///
@@ -63,16 +104,14 @@ where
         }
     }
     fn recv(&mut self) -> Result<StatusPacket, DynamixelError> {
-        // TODO: impl. timeout
-
         let mut bytes = Vec::new();
         for _ in 0..PacketHeader::length() {
-            bytes.push(block!(self.rx.read()).unwrap());
+            bytes.push(busy_wait!(self.rx.read(), self.clock, self.timeout)?);
         }
         let header = PacketHeader::from_bytes(&bytes)?;
 
         for _ in 0..header.length {
-            bytes.push(block!(self.rx.read()).unwrap());
+            bytes.push(busy_wait!(self.rx.read(), self.clock, self.timeout)?);
         }
 
         let p = StatusPacket::from_bytes(&bytes)?;
@@ -87,7 +126,7 @@ where
 
 #[derive(Clone, Copy, Debug)]
 enum Instruction {
-    _Ping = 0x01,
+    Ping = 0x01,
     ReadData = 0x02,
     WriteData = 0x03,
     _Reset = 0x06,
@@ -136,6 +175,9 @@ impl InstructionPacket {
             instruction,
             parameters,
         }
+    }
+    fn ping(id: u8) -> InstructionPacket {
+        InstructionPacket::new(id, Instruction::Ping, vec![])
     }
     fn read_data(id: u8, addr: u16, len: u16) -> InstructionPacket {
         let (addr_l, addr_h) = unpack!(addr);
@@ -246,6 +288,7 @@ fn crc(bytes: &[u8]) -> u16 {
 mod test {
     extern crate rand;
 
+    // use nb;
     use super::*;
     use self::rand::random;
     use self::rand::distributions::{Range, Sample};
@@ -309,4 +352,25 @@ mod test {
         }
         data
     }
+    // struct FakeRx;
+    // impl FakeRx {}
+    // impl hal::serial::Read<u8> for FakeRx {
+    //     type Error = !;
+    //     fn read(&mut self) -> nb::Result<u8, Self::Error> {
+    //         Ok(self.read())
+    //     }
+    // }
+    // struct FakeTx;
+    // impl hal::serial::Write<u8> for FakeTx {
+    //     type Error = !;
+    //     fn write(&mut self, _: u8) -> nb::Result<(), Self::Error> {
+    //         Ok(())
+    //     }
+    //     fn flush(&mut self) -> nb::Result<(), Self::Error> {
+    //         Ok(())
+    //     }
+    //     fn complete(&self) -> nb::Result<(), Self::Error> {
+    //         Ok(())
+    //     }
+    // }
 }
