@@ -8,7 +8,7 @@ use hal;
 use error::{DynamixelError, ErrorType};
 use motors::Register;
 
-const TIMEOUT: hal::time::MilliSecond = hal::time::MilliSecond(10);
+const TIMEOUT: hal::time::MilliSecond = hal::time::MilliSecond(1);
 
 /// Dynamixel controller for the protocol v2
 pub struct ControllerV2<RX, TX, CLOCK> {
