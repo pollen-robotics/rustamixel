@@ -23,8 +23,7 @@ crc16 = "0.3.4"
 nb = "0.1.1"
 
 [dependencies.embedded-hal]
-# git = "https://github.com/pollen-robotics/embedded-hal"
-path = "../../stm32/embedded-hal"
+git = "https://github.com/pollen-robotics/embedded-hal"
 
 [dev-dependencies]
 rand = "0.4.2"

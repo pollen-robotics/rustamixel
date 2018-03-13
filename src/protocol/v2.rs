@@ -38,8 +38,6 @@ where
     pub fn ping(&mut self, id: u8) -> Result<bool, DynamixelError> {
         self.send(&InstructionPacket::ping(id));
 
-        // println!("Ping {:?} --> {:?}", id, self.recv());
-
         match self.recv() {
             Ok(_) => Ok(true),
             Err(e) => {
