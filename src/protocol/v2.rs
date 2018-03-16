@@ -236,7 +236,9 @@ impl InstructionPacket {
     }
     fn sync_write_data(addr: u16, len: u16, data: &[(u8, u16)]) -> InstructionPacket {
         let (addr_l, addr_h) = unpack!(addr);
-        let mut param = vec![addr_l, addr_h];
+        let (len_l, len_h) = unpack!(len);
+
+        let mut param = vec![addr_l, addr_h, len_l, len_h];
 
         let coded_data = data.iter().fold(Vec::new(), |mut acc, &(id, data)| {
             acc.push(id);
