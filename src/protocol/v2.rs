@@ -222,16 +222,7 @@ impl InstructionPacket {
         let (addr_l, addr_h) = unpack!(addr);
 
         let mut parameters = vec![addr_l, addr_h];
-        match len {
-            1 => parameters.push(data as u8),
-            2 => {
-                let (data_l, data_h) = unpack!(data);
-                parameters.push(data_l);
-                parameters.push(data_h);
-            }
-            _ => panic!("Unsupported data len"),
-        }
-
+        parameters.extend(dxl_code_data!(len, data));
         InstructionPacket::new(id, Instruction::WriteData, parameters)
     }
     /// [0xFF, 0xFF, 0xFD, 0x00, ID, LEN_L, LEN_H, INST, PARAM 1, PARAM 2, ..., PARAM N, CRC_L, CRC_H]

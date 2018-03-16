@@ -41,6 +41,18 @@ macro_rules! unpack {
         ($b as u8, ($b >> 8) as u8)
     };
 }
+
+macro_rules! dxl_code_data {
+    ($len: expr, $data: expr) => {
+        match $len {
+            1 => vec![$data as u8],
+            2 => {
+                let (l, h) = unpack!($data);
+                vec![l, h]
+            }
+            _ => panic!("Unsupported data length"),
+        }
+    };
 }
 
 #[cfg(test)]
