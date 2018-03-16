@@ -76,16 +76,13 @@ where
         if (status.parameters.len()) != reg.length() as usize {
             return Err(DynamixelError::parsing_error());
         }
-        match reg.length() {
-            1 => Ok(u16::from(status.parameters[0])),
-            2 => Ok(pack!(status.parameters[0], status.parameters[1])),
-            _ => Err(DynamixelError::unsupported_register()),
-        }
+
+        Ok(dxl_decode_data!(reg.length(), status.parameters))
     }
     /// Sync read data from a specified register `REG` on a list of motor `id`.
     ///
     /// *Note: This will send an InstructionPacket to all targeted motors and block until all the StatusPackets are received as reponse.*
-    pub fn sync_read_data<REG>(&mut self, ids: &[u8], reg: &REG) -> Vec<(u8, Vec<u8>)>
+    pub fn sync_read_data<REG>(&mut self, ids: &[u8], reg: &REG) -> Vec<(u8, u16)>
     where
         REG: Register,
     {
@@ -96,7 +93,7 @@ where
 
         for &id in ids {
             if let Ok(status_packet) = self.recv() {
-                answer.push((id, status_packet.parameters));
+                answer.push((id, dxl_decode_data!(reg.length(), status_packet.parameters)));
             }
         }
 

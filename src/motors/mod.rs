@@ -55,6 +55,16 @@ macro_rules! dxl_code_data {
     };
 }
 
+macro_rules! dxl_decode_data {
+    ($len: expr, $data: expr) => {
+        match $len {
+            1 => u16::from($data[0]),
+            2 => pack!($data[0], $data[1]),
+            _ => panic!("Unsupported data length"),
+        }
+    };
+}
+
 #[cfg(test)]
 mod test {
     extern crate rand;
