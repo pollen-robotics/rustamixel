@@ -64,7 +64,7 @@ where
     /// Read data from a specified register `REG` on motor `id`.
     ///
     /// *Note: This will send an InstructionPacket to the motor and block until the StatusPacket is received as reponse.*
-    pub fn read_data<REG>(&mut self, id: u8, reg: REG) -> Result<u16, DynamixelError>
+    pub fn read_data<REG>(&mut self, id: u8, reg: &REG) -> Result<u16, DynamixelError>
     where
         REG: Register,
     {
@@ -85,7 +85,7 @@ where
     /// Write `data` to a specified register `REG` on motor `id`.
     ///
     /// *Note: This will send an InstructionPacket to the motor and block until the StatusPacket is received as an acknowledgment.*
-    pub fn write_data<REG>(&mut self, id: u8, reg: REG, data: u16) -> Result<(), DynamixelError>
+    pub fn write_data<REG>(&mut self, id: u8, reg: &REG, data: u16) -> Result<(), DynamixelError>
     where
         REG: Register,
     {
