@@ -116,6 +116,18 @@ where
 
         Ok(())
     }
+    /// Sync write `data` to a specified register `REG` on a list of motor `ids`.
+    ///
+    /// *Note: The motors will not answer after a SyncWrite. `sync_write_data` only blocks during the sending.*
+    pub fn sync_write_data<REG>(&mut self, reg: REG, data: &[(u8, u16)])
+    where
+        REG: Register,
+    {
+        let packet = InstructionPacket::sync_write_data(reg.address(), reg.length(), data);
+
+        self.send(&packet);
+    }
+
     fn send(&mut self, packet: &InstructionPacket) {
         for b in packet.as_bytes() {
             block!(self.tx.write(b)).ok();
@@ -149,7 +161,7 @@ enum Instruction {
     WriteData = 0x03,
     _Reset = 0x06,
     SyncRead = 0x82,
-    _SyncWrite = 0x83,
+    SyncWrite = 0x83,
 }
 
 const BROADCAST_ID: u8 = 254;
@@ -224,6 +236,20 @@ impl InstructionPacket {
         let mut parameters = vec![addr_l, addr_h];
         parameters.extend(dxl_code_data!(len, data));
         InstructionPacket::new(id, Instruction::WriteData, parameters)
+    }
+    fn sync_write_data(addr: u16, len: u16, data: &[(u8, u16)]) -> InstructionPacket {
+        let (addr_l, addr_h) = unpack!(addr);
+        let mut param = vec![addr_l, addr_h];
+
+        let coded_data = data.iter().fold(Vec::new(), |mut acc, &(id, data)| {
+            acc.push(id);
+            acc.extend(dxl_code_data!(len, data));
+            acc
+        });
+
+        param.extend(coded_data);
+
+        InstructionPacket::new(BROADCAST_ID, Instruction::SyncWrite, param)
     }
     /// [0xFF, 0xFF, 0xFD, 0x00, ID, LEN_L, LEN_H, INST, PARAM 1, PARAM 2, ..., PARAM N, CRC_L, CRC_H]
     fn as_bytes(&self) -> Vec<u8> {
