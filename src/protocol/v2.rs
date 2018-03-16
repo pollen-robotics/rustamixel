@@ -85,7 +85,7 @@ where
     /// Sync read data from a specified register `REG` on a list of motor `id`.
     ///
     /// *Note: This will send an InstructionPacket to all targeted motors and block until all the StatusPackets are received as reponse.*
-    pub fn sync_read_data<REG>(&mut self, ids: &[u8], reg: REG) -> Vec<(u8, Vec<u8>)>
+    pub fn sync_read_data<REG>(&mut self, ids: &[u8], reg: &REG) -> Vec<(u8, Vec<u8>)>
     where
         REG: Register,
     {
@@ -119,7 +119,7 @@ where
     /// Sync write `data` to a specified register `REG` on a list of motor `ids`.
     ///
     /// *Note: The motors will not answer after a SyncWrite. `sync_write_data` only blocks during the sending.*
-    pub fn sync_write_data<REG>(&mut self, reg: REG, data: &[(u8, u16)])
+    pub fn sync_write_data<REG>(&mut self, reg: &REG, data: &[(u8, u16)])
     where
         REG: Register,
     {
