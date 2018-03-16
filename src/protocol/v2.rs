@@ -82,6 +82,26 @@ where
             _ => Err(DynamixelError::unsupported_register()),
         }
     }
+    /// Sync read data from a specified register `REG` on a list of motor `id`.
+    ///
+    /// *Note: This will send an InstructionPacket to all targeted motors and block until all the StatusPackets are received as reponse.*
+    pub fn sync_read_data<REG>(&mut self, ids: &[u8], reg: REG) -> Vec<(u8, Vec<u8>)>
+    where
+        REG: Register,
+    {
+        let packet = InstructionPacket::sync_read_data(ids, reg.address(), reg.length());
+        self.send(&packet);
+
+        let mut answer = Vec::new();
+
+        for &id in ids {
+            if let Ok(status_packet) = self.recv() {
+                answer.push((id, status_packet.parameters));
+            }
+        }
+
+        answer
+    }
     /// Write `data` to a specified register `REG` on motor `id`.
     ///
     /// *Note: This will send an InstructionPacket to the motor and block until the StatusPacket is received as an acknowledgment.*
@@ -128,9 +148,11 @@ enum Instruction {
     ReadData = 0x02,
     WriteData = 0x03,
     _Reset = 0x06,
-    _SyncRead = 0x82,
+    SyncRead = 0x82,
     _SyncWrite = 0x83,
 }
+
+const BROADCAST_ID: u8 = 254;
 
 /// Packet header are constructed as follows [0xFF, 0xFF, 0xFD, 0x00, ID, `LEN_L`, `LEN_H`]
 #[derive(Debug)]
@@ -186,6 +208,15 @@ impl InstructionPacket {
             Instruction::ReadData,
             vec![addr_l, addr_h, len_l, len_h],
         )
+    }
+    fn sync_read_data(ids: &[u8], addr: u16, len: u16) -> InstructionPacket {
+        let (addr_l, addr_h) = unpack!(addr);
+        let (len_l, len_h) = unpack!(len);
+
+        let mut param = vec![addr_l, addr_h, len_l, len_h];
+        param.extend(ids);
+
+        InstructionPacket::new(BROADCAST_ID, Instruction::SyncRead, param)
     }
     fn write_data(id: u8, addr: u16, len: u16, data: u16) -> InstructionPacket {
         let (addr_l, addr_h) = unpack!(addr);
