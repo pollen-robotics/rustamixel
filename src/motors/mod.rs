@@ -32,12 +32,15 @@ macro_rules! register {
 pub mod XL_320;
 
 macro_rules! pack {
-    ($l:expr, $h:expr) => (u16::from($h) << 8 | u16::from($l))
+    ($l: expr, $h: expr) => {
+        u16::from($h) << 8 | u16::from($l)
+    };
 }
 macro_rules! unpack {
-    ($b:expr) => {
+    ($b: expr) => {
         ($b as u8, ($b >> 8) as u8)
-    }
+    };
+}
 }
 
 #[cfg(test)]
