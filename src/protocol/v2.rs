@@ -76,11 +76,28 @@ where
         if (status.parameters.len()) != reg.length() as usize {
             return Err(DynamixelError::parsing_error());
         }
-        match reg.length() {
-            1 => Ok(u16::from(status.parameters[0])),
-            2 => Ok(pack!(status.parameters[0], status.parameters[1])),
-            _ => Err(DynamixelError::unsupported_register()),
+
+        Ok(dxl_decode_data!(reg.length(), status.parameters))
+    }
+    /// Sync read data from a specified register `REG` on a list of motor `id`.
+    ///
+    /// *Note: This will send an InstructionPacket to all targeted motors and block until all the StatusPackets are received as reponse.*
+    pub fn sync_read_data<REG>(&mut self, ids: &[u8], reg: &REG) -> Vec<(u8, u16)>
+    where
+        REG: Register,
+    {
+        let packet = InstructionPacket::sync_read_data(ids, reg.address(), reg.length());
+        self.send(&packet);
+
+        let mut answer = Vec::new();
+
+        for &id in ids {
+            if let Ok(status_packet) = self.recv() {
+                answer.push((id, dxl_decode_data!(reg.length(), status_packet.parameters)));
+            }
         }
+
+        answer
     }
     /// Write `data` to a specified register `REG` on motor `id`.
     ///
@@ -96,6 +113,18 @@ where
 
         Ok(())
     }
+    /// Sync write `data` to a specified register `REG` on a list of motor `ids`.
+    ///
+    /// *Note: The motors will not answer after a SyncWrite. `sync_write_data` only blocks during the sending.*
+    pub fn sync_write_data<REG>(&mut self, reg: &REG, data: &[(u8, u16)])
+    where
+        REG: Register,
+    {
+        let packet = InstructionPacket::sync_write_data(reg.address(), reg.length(), data);
+
+        self.send(&packet);
+    }
+
     fn send(&mut self, packet: &InstructionPacket) {
         for b in packet.as_bytes() {
             block!(self.tx.write(b)).ok();
@@ -128,9 +157,11 @@ enum Instruction {
     ReadData = 0x02,
     WriteData = 0x03,
     _Reset = 0x06,
-    _SyncRead = 0x82,
-    _SyncWrite = 0x83,
+    SyncRead = 0x82,
+    SyncWrite = 0x83,
 }
+
+const BROADCAST_ID: u8 = 254;
 
 /// Packet header are constructed as follows [0xFF, 0xFF, 0xFD, 0x00, ID, `LEN_L`, `LEN_H`]
 #[derive(Debug)]
@@ -187,21 +218,37 @@ impl InstructionPacket {
             vec![addr_l, addr_h, len_l, len_h],
         )
     }
+    fn sync_read_data(ids: &[u8], addr: u16, len: u16) -> InstructionPacket {
+        let (addr_l, addr_h) = unpack!(addr);
+        let (len_l, len_h) = unpack!(len);
+
+        let mut param = vec![addr_l, addr_h, len_l, len_h];
+        param.extend(ids);
+
+        InstructionPacket::new(BROADCAST_ID, Instruction::SyncRead, param)
+    }
     fn write_data(id: u8, addr: u16, len: u16, data: u16) -> InstructionPacket {
         let (addr_l, addr_h) = unpack!(addr);
 
         let mut parameters = vec![addr_l, addr_h];
-        match len {
-            1 => parameters.push(data as u8),
-            2 => {
-                let (data_l, data_h) = unpack!(data);
-                parameters.push(data_l);
-                parameters.push(data_h);
-            }
-            _ => panic!("Unsupported data len"),
-        }
-
+        parameters.extend(dxl_code_data!(len, data));
         InstructionPacket::new(id, Instruction::WriteData, parameters)
+    }
+    fn sync_write_data(addr: u16, len: u16, data: &[(u8, u16)]) -> InstructionPacket {
+        let (addr_l, addr_h) = unpack!(addr);
+        let (len_l, len_h) = unpack!(len);
+
+        let mut param = vec![addr_l, addr_h, len_l, len_h];
+
+        let coded_data = data.iter().fold(Vec::new(), |mut acc, &(id, data)| {
+            acc.push(id);
+            acc.extend(dxl_code_data!(len, data));
+            acc
+        });
+
+        param.extend(coded_data);
+
+        InstructionPacket::new(BROADCAST_ID, Instruction::SyncWrite, param)
     }
     /// [0xFF, 0xFF, 0xFD, 0x00, ID, LEN_L, LEN_H, INST, PARAM 1, PARAM 2, ..., PARAM N, CRC_L, CRC_H]
     fn as_bytes(&self) -> Vec<u8> {
