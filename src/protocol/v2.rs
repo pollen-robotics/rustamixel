@@ -1,6 +1,6 @@
-use core::ops;
 #[cfg(not(feature = "std"))]
 use alloc::Vec;
+use core::ops;
 
 use crc16;
 use hal;
@@ -334,9 +334,9 @@ mod test {
     extern crate rand;
 
     // use nb;
-    use super::*;
-    use self::rand::random;
     use self::rand::distributions::{Range, Sample};
+    use self::rand::random;
+    use super::*;
 
     #[test]
     fn parse_status_packet() {
